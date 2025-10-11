@@ -1,9 +1,11 @@
 import pygame
 import math
 
-command_string = "a500/90"
-command_string.strip()
+move_coefficient = 0.70
+arc_coefficient = 0.33
 
+command_string = "a500/90, f100, t90"
+command_string.strip()
 
 command_split = command_string.split(',')
 commands = []
@@ -51,10 +53,28 @@ angle = 90
 progress, cmd_i = 0, 0
 
 def draw_robot():
-    pygame.draw.circle(WIN, (0,0,255), (int(x), int(y)), R)
-    ex = x + R * math.cos(math.radians(angle))
-    ey = y - R * math.sin(math.radians(angle))
-    pygame.draw.line(WIN, (255,0,0), (x,y), (ex,ey), 3)
+    rect_w = R * 3.5
+    rect_h = R * 4
+    
+    # Create rectangle surface with red line included
+    surface = pygame.Surface((rect_w, rect_h), pygame.SRCALPHA)
+    
+    # Draw body
+    pygame.draw.rect(surface, (0, 0, 255), (0, 0, rect_w, rect_h))
+    
+    # Draw red line from center toward front
+    center_x, center_y = rect_w // 2, rect_h // 2
+    ex = center_x + rect_w / 2
+    ey = center_y  # pointing "up"
+    pygame.draw.line(surface, (255, 0, 0), (center_x, center_y), (ex, ey), 3)
+    
+    # Rotate rectangle + line to the RIGHT instead of left
+    rotated = pygame.transform.rotozoom(surface, angle, 1)  # <-- flip sign here
+    rot_rect = rotated.get_rect(center=(int(x), int(y)))
+    WIN.blit(rotated, rot_rect.topleft)
+
+
+
 
 coefficient = 0.70
 arc_coefficient = 0.33
@@ -65,8 +85,8 @@ def move(cmd, val, x, y, angle, prog):
         remaining = abs(val) - prog
         step = min(5, remaining)
         direction = 1 if val > 0 else -1
-        x += math.cos(math.radians(angle)) * step * SCALE * coefficient * direction
-        y -= math.sin(math.radians(angle)) * step * SCALE * coefficient * direction
+        x += math.cos(math.radians(angle)) * step * SCALE * move_coefficient * direction
+        y -= math.sin(math.radians(angle)) * step * SCALE * move_coefficient * direction
         prog += step
     elif cmd == 'turn':
         val = val[0]
@@ -80,39 +100,49 @@ def move(cmd, val, x, y, angle, prog):
         clockwise = True if degrees > 0 else False
         direction = -1 if clockwise else 1
 
-        # Calculate the center of the circle relative to the robot
+        # Move along the circular arc
         angle_rad = math.radians(angle)
         cx = x - radius * math.sin(angle_rad) * direction * arc_coefficient
         cy = y - radius * math.cos(angle_rad) * direction * arc_coefficient
 
-        # Increment angle along the circle
         new_angle = angle + step_deg * direction
         new_angle_rad = math.radians(new_angle)
 
-        # Update robot position along the arc
         x = cx + radius * math.sin(new_angle_rad) * direction * arc_coefficient
         y = cy + radius * math.cos(new_angle_rad) * direction * arc_coefficient
 
+        # Keep movement angle for position
         angle = new_angle
+
+        # Use separate variable for drawing rotation
+        draw_angle = angle - 2 * step_deg * direction  # rotates opposite
         prog += step_deg
+
     return x, y, angle, prog
 
 # --- Loop ---
+# --- Loop ---
 run = True
+waiting = False  # flag to wait after each command
 while run:
     CLOCK.tick(60)
     WIN.fill((200,200,200))
     WIN.blit(board, (bx, by))
 
-    if cmd_i < len(commands):
+    if cmd_i < len(commands) and not waiting:
         cmd, val = commands[cmd_i][0], commands[cmd_i][1:]
         x, y, angle, progress = move(cmd, val, x, y, angle, progress)
         if progress >= abs(val[1] if cmd == 'arc' else val[0]):
-            cmd_i, progress = cmd_i+1, 0
+            waiting = True  # enter wait mode
 
     draw_robot()
     pygame.display.flip()
 
     for e in pygame.event.get():
-        if e.type == pygame.QUIT: run = False
+        if e.type == pygame.QUIT:
+            run = False
+        elif e.type == pygame.KEYDOWN and waiting:
+            # Press any key to continue to next command
+            cmd_i, progress = cmd_i+1, 0
+            waiting = False
 pygame.quit()
