@@ -1,7 +1,7 @@
 import pygame
 import math
 
-command_string = "f550,t90,f1000,a50:90"
+command_string = "a500/90"
 command_string.strip()
 
 
@@ -9,8 +9,8 @@ command_split = command_string.split(',')
 commands = []
 for com in command_split:
     com = com.strip()
-    if ':' in com:
-        vals = com.split(':')
+    if '/' in com:
+        vals = com.split('/')
         if len(vals) == 2:
             commands.append(['arc', int(vals[0][1:]), int(vals[1])])
     elif len(com) > 1 and com[0] == 't':
@@ -57,6 +57,7 @@ def draw_robot():
     pygame.draw.line(WIN, (255,0,0), (x,y), (ex,ey), 3)
 
 coefficient = 0.70
+arc_coefficient = 0.33
 
 def move(cmd, val, x, y, angle, prog):
     if cmd == 'forward':
@@ -81,16 +82,16 @@ def move(cmd, val, x, y, angle, prog):
 
         # Calculate the center of the circle relative to the robot
         angle_rad = math.radians(angle)
-        cx = x - radius * math.sin(angle_rad) * direction
-        cy = y - radius * math.cos(angle_rad) * direction
+        cx = x - radius * math.sin(angle_rad) * direction * arc_coefficient
+        cy = y - radius * math.cos(angle_rad) * direction * arc_coefficient
 
         # Increment angle along the circle
         new_angle = angle + step_deg * direction
         new_angle_rad = math.radians(new_angle)
 
         # Update robot position along the arc
-        x = cx + radius * math.sin(new_angle_rad) * direction
-        y = cy + radius * math.cos(new_angle_rad) * direction
+        x = cx + radius * math.sin(new_angle_rad) * direction * arc_coefficient
+        y = cy + radius * math.cos(new_angle_rad) * direction * arc_coefficient
 
         angle = new_angle
         prog += step_deg
