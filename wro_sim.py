@@ -122,7 +122,7 @@ def move(cmd, val, x, y, angle, prog):
 
 # --- Loop ---
 # --- Loop ---
-run = True
+run = False
 waiting = False  # flag to wait after each command
 while run:
     CLOCK.tick(60)
