@@ -1,10 +1,13 @@
 import pygame
 import math
-
-move_coefficient = 0.70
+#turn = t(angle)
+#forward = (distance)
+#arc = a(radius/angle)
+move_coefficient = 1
 arc_coefficient = 0.33
+speed = 100
 
-command_string = "a500/90, f100, t90"
+command_string = "f550,t90,f100"
 command_string.strip()
 
 command_split = command_string.split(',')
@@ -121,14 +124,13 @@ def move(cmd, val, x, y, angle, prog):
     return x, y, angle, prog
 
 # --- Loop ---
-# --- Loop ---
-run = False
-waiting = False  # flag to wait after each command
+run = True
+waiting = False # flag to wait after each command
 while run:
-    CLOCK.tick(60)
+    CLOCK.tick(speed)
     WIN.fill((200,200,200))
     WIN.blit(board, (bx, by))
-
+    
     if cmd_i < len(commands) and not waiting:
         cmd, val = commands[cmd_i][0], commands[cmd_i][1:]
         x, y, angle, progress = move(cmd, val, x, y, angle, progress)
@@ -137,7 +139,6 @@ while run:
 
     draw_robot()
     pygame.display.flip()
-
     for e in pygame.event.get():
         if e.type == pygame.QUIT:
             run = False
@@ -145,4 +146,5 @@ while run:
             # Press any key to continue to next command
             cmd_i, progress = cmd_i+1, 0
             waiting = False
+
 pygame.quit()
