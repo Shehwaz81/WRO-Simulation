@@ -77,11 +77,6 @@ def draw_robot():
     WIN.blit(rotated, rot_rect.topleft)
 
 
-
-
-coefficient = 0.70
-arc_coefficient = 0.33
-
 def move(cmd, val, x, y, angle, prog):
     if cmd == 'forward':
         val = val[0]
@@ -123,28 +118,34 @@ def move(cmd, val, x, y, angle, prog):
 
     return x, y, angle, prog
 
-# --- Loop ---
 run = True
-waiting = False # flag to wait after each command
+waiting = False  # flag to wait after each command
+started = False  # flag to wait for mouse click to start
 while run:
     CLOCK.tick(speed)
-    WIN.fill((200,200,200))
+    WIN.fill((200, 200, 200))
     WIN.blit(board, (bx, by))
-    
-    if cmd_i < len(commands) and not waiting:
-        cmd, val = commands[cmd_i][0], commands[cmd_i][1:]
-        x, y, angle, progress = move(cmd, val, x, y, angle, progress)
-        if progress >= abs(val[1] if cmd == 'arc' else val[0]):
-            waiting = True  # enter wait mode
 
     draw_robot()
     pygame.display.flip()
+
+    if started:
+        if cmd_i < len(commands) and not waiting:
+            cmd, val = commands[cmd_i][0], commands[cmd_i][1:]
+            x, y, angle, progress = move(cmd, val, x, y, angle, progress)
+            if progress >= abs(val[1] if cmd == 'arc' else val[0]):
+                waiting = True  # enter wait mode
+    
     for e in pygame.event.get():
-        if e.type == pygame.QUIT:
+        if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
             run = False
+        elif e.type == pygame.KEYDOWN and not started:
+            started = True
         elif e.type == pygame.KEYDOWN and waiting:
-            # Press any key to continue to next command
-            cmd_i, progress = cmd_i+1, 0
+            cmd_i, progress = cmd_i + 1, 0
             waiting = False
+
+    if not started:
+        continue
 
 pygame.quit()
