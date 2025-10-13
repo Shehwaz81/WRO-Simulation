@@ -170,7 +170,7 @@ while run:
         if e.type == pygame.QUIT:
             run = False
         elif e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
-            # Restart sim
+            # Restart simulation
             x, y = mm_to_px(250, 265)
             angle = 90
             progress, cmd_i = 0, 0
@@ -180,8 +180,23 @@ while run:
             rotating = False
         elif e.type == pygame.KEYDOWN and not started:
             # Allow keyboard start (Space or S)
-            if e.key == pygame.K_SPACE or e.key == pygame.K_s:
+            if e.key == pygame.K_SPACE:
                 started = True
+            # WASD for small movement increments
+            move_step = 10
+            if e.key == pygame.K_w:
+                y -= move_step
+            elif e.key == pygame.K_s:
+                y += move_step
+            elif e.key == pygame.K_a:
+                x -= move_step
+            elif e.key == pygame.K_d:
+                x += move_step
+            # Left/right arrow for 45-degree rotation
+            elif e.key == pygame.K_LEFT:
+                angle = (angle + 45) % 360
+            elif e.key == pygame.K_RIGHT:
+                angle = (angle - 45) % 360
         elif e.type == pygame.KEYDOWN and waiting:
             cmd_i, progress = cmd_i + 1, 0
             waiting = False
