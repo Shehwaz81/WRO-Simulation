@@ -7,7 +7,7 @@ move_coefficient = 1
 arc_coefficient = 0.34
 speed = 100
 
-command_string = "a500/90"
+command_string = "a500/90, f200, t90"
 command_string.strip()
 
 command_split = command_string.split(',')
@@ -167,8 +167,17 @@ while run:
                 waiting = True  # enter wait mode
 
     for e in pygame.event.get():
-        if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
+        if e.type == pygame.QUIT:
             run = False
+        elif e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+            # Restart sim
+            x, y = mm_to_px(250, 265)
+            angle = 90
+            progress, cmd_i = 0, 0
+            waiting = False
+            started = False
+            dragging = False
+            rotating = False
         elif e.type == pygame.KEYDOWN and not started:
             # Allow keyboard start (Space or S)
             if e.key == pygame.K_SPACE or e.key == pygame.K_s:
@@ -177,18 +186,18 @@ while run:
             cmd_i, progress = cmd_i + 1, 0
             waiting = False
 
-        # Pre-start interaction: moving and rotating
+        # pre start moving and turning
         if not started:
             if e.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = e.pos
-                # Left click -> start dragging if on robot
+                # reft click: start dragging if on robot
                 if e.button == 1 and robot_rect.collidepoint((mx, my)):
                     dragging = True
                     drag_offset = (x - mx, y - my)
-                # Right click -> start rotating if on robot
+                # right click: start rotating if on robot
                 elif (e.button == 3 or e.button == 2) and robot_rect.collidepoint((mx, my)):
                     rotating = True
-                # Click start button
+                # rlick start button
                 elif e.button == 1 and 'start_rect' in locals() and start_rect.collidepoint((mx, my)):
                     started = True
             elif e.type == pygame.MOUSEBUTTONUP:
@@ -213,4 +222,16 @@ while run:
     if not started:
         continue
 
+
 pygame.quit()
+
+# Print commands after simulation ends
+print("\n===== COPY BELOW TO YOUR SCRIPT =====\n")
+for com in commands:
+    if (com[0] == 'forward'):
+        print(f'await db.straight({com[1]})')
+    elif (com[0] == 'turn'):
+        print(f'await db.turn({com[1]})')
+    elif (com[0] == 'arc'):
+        print(f'await db.arc({com[1]}, {com[2]})')
+print("\n===== END COPY BLOCK =====\n")
