@@ -6,6 +6,8 @@ import math
 move_coefficient = 1
 arc_coefficient = 0.34
 speed = 100
+# how much you want wasd to move the robot
+move_step = 5
 
 command_string = "a500/90, f200, t90"
 command_string.strip()
@@ -182,8 +184,6 @@ while run:
             # Allow keyboard start (Space or S)
             if e.key == pygame.K_SPACE:
                 started = True
-            # WASD for small movement increments
-            move_step = 10
             if e.key == pygame.K_w:
                 y -= move_step
             elif e.key == pygame.K_s:
