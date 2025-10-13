@@ -55,6 +55,14 @@ x, y = mm_to_px(250, 250)
 angle = 90
 progress, cmd_i = 0, 0
 
+# Pre-start interaction state
+dragging = False
+rotating = False
+drag_offset = (0, 0)
+
+# UI
+FONT = pygame.font.SysFont(None, 20)
+
 def draw_robot():
     rect_w = R * 3.5
     rect_h = R * 4
@@ -75,6 +83,7 @@ def draw_robot():
     rotated = pygame.transform.rotozoom(surface, angle, 1)  # <-- flip sign here
     rot_rect = rotated.get_rect(center=(int(x), int(y)))
     WIN.blit(rotated, rot_rect.topleft)
+    return rot_rect
 
 
 def move(cmd, val, x, y, angle, prog):
@@ -126,7 +135,28 @@ while run:
     WIN.fill((200, 200, 200))
     WIN.blit(board, (bx, by))
 
-    draw_robot()
+    # Draw robot and get its rect for interaction when not started
+    robot_rect = draw_robot()
+
+    # Draw UI when not started (You can remove this once you are used to it)
+    if not started:
+        instr_lines = [
+            "PREPARE ROBOT:",
+            "Left-drag = move",
+            "Right-drag = rotate",
+            "Mouse wheel = rotate",
+            "Click START or press S/Space to begin"
+        ]
+        for i, line in enumerate(instr_lines):
+            txt = FONT.render(line, True, (0, 0, 0))
+            WIN.blit(txt, (10, 10 + i * 18))
+
+        # Start button
+        start_rect = pygame.Rect(WIN_W - 110, 10, 100, 30)
+        pygame.draw.rect(WIN, (100, 200, 100), start_rect)
+        start_txt = FONT.render("START (S)", True, (0, 0, 0))
+        WIN.blit(start_txt, (WIN_W - 90, 18))
+
     pygame.display.flip()
 
     if started:
@@ -135,15 +165,50 @@ while run:
             x, y, angle, progress = move(cmd, val, x, y, angle, progress)
             if progress >= abs(val[1] if cmd == 'arc' else val[0]):
                 waiting = True  # enter wait mode
-    
+
     for e in pygame.event.get():
         if e.type == pygame.QUIT or (e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE):
             run = False
         elif e.type == pygame.KEYDOWN and not started:
-            started = True
+            # Allow keyboard start (Space or S)
+            if e.key == pygame.K_SPACE or e.key == pygame.K_s:
+                started = True
         elif e.type == pygame.KEYDOWN and waiting:
             cmd_i, progress = cmd_i + 1, 0
             waiting = False
+
+        # Pre-start interaction: moving and rotating
+        if not started:
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = e.pos
+                # Left click -> start dragging if on robot
+                if e.button == 1 and robot_rect.collidepoint((mx, my)):
+                    dragging = True
+                    drag_offset = (x - mx, y - my)
+                # Right click -> start rotating if on robot
+                elif (e.button == 3 or e.button == 2) and robot_rect.collidepoint((mx, my)):
+                    rotating = True
+                # Click start button
+                elif e.button == 1 and 'start_rect' in locals() and start_rect.collidepoint((mx, my)):
+                    started = True
+            elif e.type == pygame.MOUSEBUTTONUP:
+                if e.button == 1:
+                    dragging = False
+                if e.button == 3 or e.button == 2:
+                    rotating = False
+            elif e.type == pygame.MOUSEMOTION:
+                mx, my = e.pos
+                if dragging:
+                    x = mx + drag_offset[0]
+                    y = my + drag_offset[1]
+                elif rotating:
+                    # angle = degrees(atan2(-(mousey - y), (mousex - x)))
+                    dx = mx - x
+                    dy = my - y
+                    angle = math.degrees(math.atan2(-dy, dx))
+            elif e.type == pygame.MOUSEWHEEL:
+                # scroll up/down to rotate
+                angle += -e.y * 5
 
     if not started:
         continue
