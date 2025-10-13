@@ -4,10 +4,10 @@ import math
 #forward = (distance)
 #arc = a(radius/angle)
 move_coefficient = 1
-arc_coefficient = 0.33
+arc_coefficient = 0.34
 speed = 100
 
-command_string = "f550,t90,f100"
+command_string = "a500/90"
 command_string.strip()
 
 command_split = command_string.split(',')
@@ -51,7 +51,7 @@ def mm_to_px(x, y):
 # --- Robot ---
 R_MM = 50
 R = int(R_MM * SCALE)
-x, y = mm_to_px(250, 250)
+x, y = mm_to_px(250, 265)
 angle = 90
 progress, cmd_i = 0, 0
 
@@ -70,8 +70,8 @@ def draw_robot():
     # Create rectangle surface with red line included
     surface = pygame.Surface((rect_w, rect_h), pygame.SRCALPHA)
     
-    # Draw body
-    pygame.draw.rect(surface, (0, 0, 255), (0, 0, rect_w, rect_h))
+    # Draw body (semi-transparent blue)
+    pygame.draw.rect(surface, (0, 0, 255, 120), (0, 0, rect_w, rect_h))
     
     # Draw red line from center toward front
     center_x, center_y = rect_w // 2, rect_h // 2
@@ -128,8 +128,8 @@ def move(cmd, val, x, y, angle, prog):
     return x, y, angle, prog
 
 run = True
-waiting = False  # flag to wait after each command
-started = False  # flag to wait for mouse click to start
+waiting = False
+started = False 
 while run:
     CLOCK.tick(speed)
     WIN.fill((200, 200, 200))
@@ -145,7 +145,7 @@ while run:
             "Left-drag = move",
             "Right-drag = rotate",
             "Mouse wheel = rotate",
-            "Click START or press S/Space to begin"
+            "Click STAART or any key to begin"
         ]
         for i, line in enumerate(instr_lines):
             txt = FONT.render(line, True, (0, 0, 0))
@@ -208,7 +208,7 @@ while run:
                     angle = math.degrees(math.atan2(-dy, dx))
             elif e.type == pygame.MOUSEWHEEL:
                 # scroll up/down to rotate
-                angle += -e.y * 5
+                angle -= e.y * 5
 
     if not started:
         continue
