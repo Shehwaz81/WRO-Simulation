@@ -66,8 +66,9 @@ drag_offset = (0, 0)
 FONT = pygame.font.SysFont(None, 20)
 
 def draw_robot():
-    rect_w = R * 3.5
-    rect_h = R * 4
+    # Swap width and height values
+    rect_w = R * 4      # width is now R * 4
+    rect_h = R * 3.5    # height is now R * 3.5
     
     # Create rectangle surface with red line included
     surface = pygame.Surface((rect_w, rect_h), pygame.SRCALPHA)
@@ -77,14 +78,24 @@ def draw_robot():
     
     # Draw red line from center toward front
     center_x, center_y = rect_w // 2, rect_h // 2
-    ex = center_x + rect_w / 2
-    ey = center_y  # pointing "up"
+    ex = center_x 
+    ey = center_y + rect_w / 2
     pygame.draw.line(surface, (255, 0, 0), (center_x, center_y), (ex, ey), 3)
     
-    # Rotate rectangle + line to the RIGHT instead of left
-    rotated = pygame.transform.rotozoom(surface, angle, 1)  # <-- flip sign here
+    rotated = pygame.transform.rotozoom(surface, angle + 90, 1)
     rot_rect = rotated.get_rect(center=(int(x), int(y)))
     WIN.blit(rotated, rot_rect.topleft)
+
+    # Draw the square at the top of the robot (where the red line points)
+    square_size = rect_w * 13 / 22
+    gap = 4  # pixels of space between robot and square
+    # Calculate the position at the top of the robot using its angle
+    offset = (rect_w / 2) + gap + (square_size / 2)
+    rad = math.radians(angle)  # top direction (red line points)
+    square_x = x + math.cos(rad) * offset
+    square_y = y - math.sin(rad) * offset
+    square_rect = pygame.Rect(square_x - square_size/2, square_y - square_size/2, square_size, square_size)
+    pygame.draw.rect(WIN, (0, 200, 0, 180), square_rect)
     return rot_rect
 
 
