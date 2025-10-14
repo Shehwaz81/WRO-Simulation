@@ -9,7 +9,7 @@ speed = 100
 # how much you want wasd to move the robot
 move_step = 5
 
-command_string = "a500/90, f200, t90"
+command_string = "a500/90, ld, f200, t90, lu"
 command_string.strip()
 
 command_split = command_string.split(',')
@@ -26,6 +26,10 @@ for com in command_split:
     elif len(com) > 1 and com[0] == 'f':
         value = int(com[1:])
         commands.append(['forward', value])
+    elif com == 'lu':
+        commands.append(['lift_up', 0])
+    elif com == 'ld':
+        commands.append(['lift_down', 1])
 
 
 pygame.init()
@@ -60,6 +64,7 @@ progress, cmd_i = 0, 0
 # Pre-start interaction state
 dragging = False
 rotating = False
+arm_down = False
 drag_offset = (0, 0)
 
 # UI
@@ -86,17 +91,19 @@ def draw_robot():
     rot_rect = rotated.get_rect(center=(int(x), int(y)))
     WIN.blit(rotated, rot_rect.topleft)
 
-    # Draw the square at the top of the robot (where the red line points)
-    square_size = rect_w * 13 / 22
-    gap = 4  # pixels of space between robot and square
-    # Calculate the position at the top of the robot using its angle
-    offset = (rect_w / 2) + gap + (square_size / 2)
-    rad = math.radians(angle)  # top direction (red line points)
-    square_x = x + math.cos(rad) * offset
-    square_y = y - math.sin(rad) * offset
-    square_rect = pygame.Rect(square_x - square_size/2, square_y - square_size/2, square_size, square_size)
-    pygame.draw.rect(WIN, (0, 200, 0, 180), square_rect)
-    return rot_rect
+    if arm_down:
+        # Draw the square at the top of the robot (where red line points)
+        square_size = rect_w * 13 / 22
+        gap = 4 
+        # Calculate the position at the top of the robot using its angle
+        offset = (rect_w / 2) + gap + (square_size / 2)
+        rad = math.radians(angle)  # top dir
+        square_x = x + math.cos(rad) * offset
+        square_y = y - math.sin(rad) * offset
+        square_rect = pygame.Rect(square_x - square_size/2, square_y - square_size/2, square_size, square_size)
+        pygame.draw.rect(WIN, (0, 200, 0, 180), square_rect)
+    else:
+        return rot_rect
 
 
 def move(cmd, val, x, y, angle, prog):
@@ -175,9 +182,13 @@ while run:
     if started:
         if cmd_i < len(commands) and not waiting:
             cmd, val = commands[cmd_i][0], commands[cmd_i][1:]
-            x, y, angle, progress = move(cmd, val, x, y, angle, progress)
-            if progress >= abs(val[1] if cmd == 'arc' else val[0]):
-                waiting = True  # enter wait mode
+            if cmd == 'lift_up' or cmd == 'lift_down':
+                arm_down = val
+                waiting = True
+            else:
+                x, y, angle, progress = move(cmd, val, x, y, angle, progress)
+                if progress >= abs(val[1] if cmd == 'arc' else val[0]):
+                    waiting = True
 
     for e in pygame.event.get():
         if e.type == pygame.QUIT:
@@ -203,7 +214,6 @@ while run:
                 x -= move_step
             elif e.key == pygame.K_d:
                 x += move_step
-            # Left/right arrow for 45-degree rotation
             elif e.key == pygame.K_LEFT:
                 angle = (angle + 45) % 360
             elif e.key == pygame.K_RIGHT:
@@ -212,7 +222,6 @@ while run:
             cmd_i, progress = cmd_i + 1, 0
             waiting = False
 
-        # pre start moving and turning
         if not started:
             if e.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = e.pos
@@ -242,7 +251,6 @@ while run:
                     dy = my - y
                     angle = math.degrees(math.atan2(-dy, dx))
             elif e.type == pygame.MOUSEWHEEL:
-                # scroll up/down to rotate
                 angle -= e.y * 5
 
     if not started:
