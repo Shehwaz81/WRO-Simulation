@@ -171,7 +171,7 @@ while run:
             txt = FONT.render(line, True, (0, 0, 0))
             WIN.blit(txt, (10, 10 + i * 18))
 
-        # Start button
+        # Start btn
         start_rect = pygame.Rect(WIN_W - 110, 10, 100, 30)
         pygame.draw.rect(WIN, (100, 200, 100), start_rect)
         start_txt = FONT.render("START (S)", True, (0, 0, 0))
@@ -203,7 +203,7 @@ while run:
             dragging = False
             rotating = False
         elif e.type == pygame.KEYDOWN and not started:
-            # Allow keyboard start (Space or S)
+            #keyboard start on spcae
             if e.key == pygame.K_SPACE:
                 started = True
             if e.key == pygame.K_w:
@@ -262,10 +262,14 @@ pygame.quit()
 # Print commands after simulation ends
 print("\n===== COPY BELOW TO YOUR SCRIPT =====\n")
 for com in commands:
-    if (com[0] == 'forward'):
+    if com[0] == 'forward':
         print(f'await db.straight({com[1]})')
-    elif (com[0] == 'turn'):
+    elif com[0] == 'turn':
         print(f'await db.turn({com[1]})')
-    elif (com[0] == 'arc'):
+    elif com[0] == 'arc':
         print(f'await db.arc({com[1]}, {com[2]})')
+    elif com[0] == 'lift_up':
+        print(f'await arm.run_angle(500,-500)')
+    elif com[0] == 'lift_down':
+        print(f'await arm.run_angle(300,500)')
 print("\n===== END COPY BLOCK =====\n")
