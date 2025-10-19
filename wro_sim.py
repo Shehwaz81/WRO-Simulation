@@ -6,7 +6,7 @@ import math
 move_coefficient = 1
 arc_coefficient = 0.34
 speed = 100
-# how much you want wasd to move the robot
+# how much you want wasd to move the robot (per wasd)
 move_step = 5
 
 command_string = "a500/90, ld, f200, t90, lu"
@@ -37,7 +37,7 @@ WIN_W, WIN_H = 800, 600
 WIN = pygame.display.set_mode((WIN_W, WIN_H))
 CLOCK = pygame.time.Clock()
 
-# --- Board ---
+# Board 
 BOARD_W, BOARD_H = 2362, 1143  # mm
 board = pygame.image.load("board.jpg")
 aspect = BOARD_W / BOARD_H
@@ -54,14 +54,13 @@ SCALE = min(w / BOARD_W, h / BOARD_H)
 def mm_to_px(x, y):
     return int(bx + x * SCALE), int(by + h - y * SCALE)
 
-# --- Robot ---
+# Robot
 R_MM = 50
 R = int(R_MM * SCALE)
 x, y = mm_to_px(250, 265)
 angle = 90
 progress, cmd_i = 0, 0
 
-# Pre-start interaction state
 dragging = False
 rotating = False
 arm_down = False
@@ -71,9 +70,8 @@ drag_offset = (0, 0)
 FONT = pygame.font.SysFont(None, 20)
 
 def draw_robot():
-    # Swap width and height values
-    rect_w = R * 4      # width is now R * 4
-    rect_h = R * 3.5    # height is now R * 3.5
+    rect_w = R * 4
+    rect_h = R * 3.5
     
     # Create rectangle surface with red line included
     surface = pygame.Surface((rect_w, rect_h), pygame.SRCALPHA)
@@ -92,7 +90,6 @@ def draw_robot():
     WIN.blit(rotated, rot_rect.topleft)
 
     if arm_down:
-        # Draw the square at the top of the robot (where red line points)
         square_size = rect_w * 13 / 22
         gap = 4 
         # Calculate the position at the top of the robot using its angle
@@ -121,7 +118,7 @@ def move(cmd, val, x, y, angle, prog):
         angle += step if val < 0 else -step
         prog += step
     elif cmd == 'arc':
-        radius, degrees = val  # val = [radius, degrees]
+        radius, degrees = val 
         remaining = abs(degrees) - prog
         step_deg = min(2, remaining)
         clockwise = True if degrees > 0 else False
@@ -142,7 +139,7 @@ def move(cmd, val, x, y, angle, prog):
         angle = new_angle
 
         # Use separate variable for drawing rotation
-        draw_angle = angle - 2 * step_deg * direction  # rotates opposite
+        draw_angle = angle - 2 * step_deg * direction 
         prog += step_deg
 
     return x, y, angle, prog
@@ -203,7 +200,6 @@ while run:
             dragging = False
             rotating = False
         elif e.type == pygame.KEYDOWN and not started:
-            #keyboard start on spcae
             if e.key == pygame.K_SPACE:
                 started = True
             if e.key == pygame.K_w:
@@ -259,7 +255,6 @@ while run:
 
 pygame.quit()
 
-# Print commands after simulation ends
 print("\n===== COPY BELOW TO YOUR SCRIPT =====\n")
 for com in commands:
     if com[0] == 'forward':
