@@ -76,10 +76,9 @@ def draw_robot():
     # Create rectangle surface with red line included
     surface = pygame.Surface((rect_w, rect_h), pygame.SRCALPHA)
     
-    # Draw body (semi-transparent blue)
+    # Draw body that is transparent
     pygame.draw.rect(surface, (0, 0, 255, 120), (0, 0, rect_w, rect_h))
-    
-    # Draw red line from center toward front
+    #redline    
     center_x, center_y = rect_w // 2, rect_h // 2
     ex = center_x 
     ey = center_y + rect_w / 2
@@ -92,15 +91,17 @@ def draw_robot():
     if arm_down:
         square_size = rect_w * 13 / 22
         gap = 4 
-        # Calculate the position at the top of the robot using its angle
         offset = (rect_w / 2) + gap + (square_size / 2)
-        rad = math.radians(angle)  # top dir
+        rad = math.radians(angle)
         square_x = x + math.cos(rad) * offset
         square_y = y - math.sin(rad) * offset
-        square_rect = pygame.Rect(square_x - square_size/2, square_y - square_size/2, square_size, square_size)
-        pygame.draw.rect(WIN, (0, 200, 0, 180), square_rect)
-    else:
-        return rot_rect
+
+        # Create transparent surface for the square
+        square_surf = pygame.Surface((square_size, square_size), pygame.SRCALPHA)
+        pygame.draw.rect(square_surf, (0, 200, 0, 120), (0, 0, square_size, square_size))
+        sqaure_rotated = pygame.transform.rotozoom(square_surf, 0, 1)
+        WIN.blit(square_surf, (square_x - square_size / 2, square_y - square_size / 2))
+    return rot_rect
 
 
 def move(cmd, val, x, y, angle, prog):
@@ -146,7 +147,7 @@ def move(cmd, val, x, y, angle, prog):
 
 run = True
 waiting = False
-started = False 
+started = False
 while run:
     CLOCK.tick(speed)
     WIN.fill((200, 200, 200))
@@ -180,7 +181,7 @@ while run:
         if cmd_i < len(commands) and not waiting:
             cmd, val = commands[cmd_i][0], commands[cmd_i][1:]
             if cmd == 'lift_up' or cmd == 'lift_down':
-                arm_down = val
+                arm_down = bool(val[0])
                 waiting = True
             else:
                 x, y, angle, progress = move(cmd, val, x, y, angle, progress)
