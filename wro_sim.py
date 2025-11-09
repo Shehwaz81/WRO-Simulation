@@ -8,6 +8,7 @@ arc_coefficient = 0.34
 speed = 100
 # how much you want wasd to move the robot (per wasd)
 move_step = 5
+arm_down = True
 
 command_string = "a500/90, ld, f200, t90, lu"
 command_string.strip()
@@ -63,7 +64,6 @@ progress, cmd_i = 0, 0
 
 dragging = False
 rotating = False
-arm_down = False
 drag_offset = (0, 0)
 
 # UI
@@ -96,11 +96,12 @@ def draw_robot():
         square_x = x + math.cos(rad) * offset
         square_y = y - math.sin(rad) * offset
 
-        # Create transparent surface for the square
         square_surf = pygame.Surface((square_size, square_size), pygame.SRCALPHA)
         pygame.draw.rect(square_surf, (0, 200, 0, 120), (0, 0, square_size, square_size))
-        sqaure_rotated = pygame.transform.rotozoom(square_surf, 0, 1)
-        WIN.blit(square_surf, (square_x - square_size / 2, square_y - square_size / 2))
+
+        rotated_square = pygame.transform.rotozoom(square_surf, angle, 1)
+        block_rect = rotated_square.get_rect(center=(square_x, square_y))
+        WIN.blit(rotated_square, block_rect.topleft)
     return rot_rect
 
 
@@ -203,6 +204,8 @@ while run:
         elif e.type == pygame.KEYDOWN and not started:
             if e.key == pygame.K_SPACE:
                 started = True
+            if e.key == pygame.K_r:
+                arm_down = not arm_down
             if e.key == pygame.K_w:
                 y -= move_step
             elif e.key == pygame.K_s:
