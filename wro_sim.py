@@ -40,7 +40,7 @@ CLOCK = pygame.time.Clock()
 
 # Board 
 BOARD_W, BOARD_H = 2362, 1143  # mm
-board = pygame.image.load("board.jpg")
+board = pygame.image.load("WRO-MAP.jpg")
 aspect = BOARD_W / BOARD_H
 if WIN_W / WIN_H > aspect:
     h = WIN_H
