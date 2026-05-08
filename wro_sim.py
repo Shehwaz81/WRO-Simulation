@@ -55,7 +55,13 @@ SCALE = min(w / BOARD_W, h / BOARD_H)
 def mm_to_px(x, y):
     return int(bx + x * SCALE), int(by + h - y * SCALE)
 
-# Robot
+# Robot dimensions (mm)
+BODY_W_MM = 216
+BODY_H_MM = 144
+ARM_W_MM = 58
+ARM_H_RETRACTED_MM = 96
+ARM_H_EXTENDED_MM = 160
+
 R_MM = 50
 R = int(R_MM * SCALE)
 x, y = mm_to_px(250, 265)
@@ -70,8 +76,8 @@ drag_offset = (0, 0)
 FONT = pygame.font.SysFont(None, 20)
 
 def draw_robot():
-    rect_w = R * 4
-    rect_h = R * 3.5
+    rect_w = max(1, int(BODY_W_MM * SCALE))
+    rect_h = max(1, int(BODY_H_MM * SCALE))
     
     # Create rectangle surface with red line included
     surface = pygame.Surface((rect_w, rect_h), pygame.SRCALPHA)
@@ -88,21 +94,23 @@ def draw_robot():
     rot_rect = rotated.get_rect(center=(int(x), int(y)))
     WIN.blit(rotated, rot_rect.topleft)
 
-    if arm_down:
-        square_size = rect_w * 13 / 22
-        gap = 4 
-        offset = (rect_w / 2) + gap + (square_size / 2)
-        rad = math.radians(angle)
-        square_x = x + math.cos(rad) * offset
-        square_y = y - math.sin(rad) * offset
+    arm_w = max(1, int(ARM_W_MM * SCALE))
+    arm_h_mm = ARM_H_EXTENDED_MM if arm_down else ARM_H_RETRACTED_MM
+    arm_h = max(1, int(arm_h_mm * SCALE))
+    gap = 0
+    offset = (rect_w / 2) + gap + (arm_h / 2)
+    rad = math.radians(angle)
+    arm_x = x + math.cos(rad) * offset
+    arm_y = y - math.sin(rad) * offset
 
-        square_surf = pygame.Surface((square_size, square_size), pygame.SRCALPHA)
-        pygame.draw.rect(square_surf, (0, 200, 0, 120), (0, 0, square_size, square_size))
+    arm_surf = pygame.Surface((arm_h, arm_w), pygame.SRCALPHA)
+    pygame.draw.rect(arm_surf, (0, 200, 0, 120), (0, 0, arm_h, arm_w))
 
-        rotated_square = pygame.transform.rotozoom(square_surf, angle, 1)
-        block_rect = rotated_square.get_rect(center=(square_x, square_y))
-        WIN.blit(rotated_square, block_rect.topleft)
-    return rot_rect
+    rotated_arm = pygame.transform.rotozoom(arm_surf, angle, 1)
+    arm_rect = rotated_arm.get_rect(center=(arm_x, arm_y))
+    WIN.blit(rotated_arm, arm_rect.topleft)
+
+    return rot_rect.union(arm_rect)
 
 
 def move(cmd, val, x, y, angle, prog):
