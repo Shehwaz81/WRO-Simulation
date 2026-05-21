@@ -8,7 +8,21 @@ arc_coefficient = 0.34
 speed = 100
 # how much you want wasd to move the robot (per wasd)
 move_step = 5
-arm_down = True
+
+# Robot dimensions in robot-local units. The board and drive code use mm, so
+# these LEGO-style units are converted at 10 mm per unit for drawing.
+ROBOT_LENGTH = 15
+ROBOT_WIDTH = 21.5
+ARM_WIDTH = 15
+ARM_LENGTH_RETRACTED = 8
+ARM_LENGTH_EXTENDED = 12
+BOX_WIDTH = 23
+BOX_LENGTH_RETRACTED = 1
+BOX_LENGTH_EXTENDED = 14
+ROBOT_UNIT_MM = 10
+
+ARM_MAX_ANGLE = 500
+BOX_MAX_ANGLE = 500
 
 command_string = "a500/90, ld, f200, t90, lu"
 command_string.strip()
@@ -31,6 +45,14 @@ for com in command_split:
         commands.append(['lift_up', 0])
     elif com == 'ld':
         commands.append(['lift_down', 1])
+    elif com == 'ar':
+        commands.append(['arm_retract', 0])
+    elif com == 'ae':
+        commands.append(['arm_extend', 1])
+    elif com == 'br':
+        commands.append(['box_retract', 0])
+    elif com == 'be':
+        commands.append(['box_extend', 1])
 
 
 pygame.init()
@@ -55,62 +77,275 @@ SCALE = min(w / BOARD_W, h / BOARD_H)
 def mm_to_px(x, y):
     return int(bx + x * SCALE), int(by + h - y * SCALE)
 
+def px_to_mm(px, py):
+    return (px - bx) / SCALE, (by + h - py) / SCALE
+
+def units_to_mm(value):
+    return value * ROBOT_UNIT_MM
+
+def clamp(value, low, high):
+    return max(low, min(high, value))
+
 # Robot dimensions (mm)
-BODY_W_MM = 216
-BODY_H_MM = 144
-ARM_W_MM = 58
-ARM_H_RETRACTED_MM = 96
-ARM_H_EXTENDED_MM = 160
+BODY_W_MM = units_to_mm(ROBOT_WIDTH)
+BODY_H_MM = units_to_mm(ROBOT_LENGTH)
+RULER_MM = 300
+RULER_HEIGHT_PX = 36
 
 R_MM = 50
 R = int(R_MM * SCALE)
 x, y = mm_to_px(250, 265)
 angle = 90
 progress, cmd_i = 0, 0
+ruler_x, ruler_y = bx + 30, by + h - 70
 
 dragging = False
 rotating = False
+ruler_dragging = False
 drag_offset = (0, 0)
+ruler_drag_offset = (0, 0)
 
 # UI
 FONT = pygame.font.SysFont(None, 20)
 
-def draw_robot():
-    rect_w = max(1, int(BODY_W_MM * SCALE))
-    rect_h = max(1, int(BODY_H_MM * SCALE))
-    
-    # Create rectangle surface with red line included
-    surface = pygame.Surface((rect_w, rect_h), pygame.SRCALPHA)
-    
-    # Draw body that is transparent
-    pygame.draw.rect(surface, (0, 0, 255, 120), (0, 0, rect_w, rect_h))
-    #redline    
-    center_x, center_y = rect_w // 2, rect_h // 2
-    ex = center_x 
-    ey = center_y + rect_w / 2
-    pygame.draw.line(surface, (255, 0, 0), (center_x, center_y), (ex, ey), 3)
-    
-    rotated = pygame.transform.rotozoom(surface, angle + 90, 1)
-    rot_rect = rotated.get_rect(center=(int(x), int(y)))
-    WIN.blit(rotated, rot_rect.topleft)
+class Stop:
+    HOLD = "hold"
+    COAST = "coast"
+    BRAKE = "brake"
 
-    arm_w = max(1, int(ARM_W_MM * SCALE))
-    arm_h_mm = ARM_H_EXTENDED_MM if arm_down else ARM_H_RETRACTED_MM
-    arm_h = max(1, int(arm_h_mm * SCALE))
-    gap = 0
-    offset = (rect_w / 2) + gap + (arm_h / 2)
+
+class LinearMechanismMotor:
+    def __init__(self, name, retracted_length, extended_length, max_angle):
+        self.name = name
+        self.retracted_length = retracted_length
+        self.extended_length = extended_length
+        self.max_angle = max_angle
+        self.angle = 0
+
+    @property
+    def length(self):
+        travel = self.extended_length - self.retracted_length
+        return self.retracted_length + travel * (self.angle / self.max_angle)
+
+    @property
+    def extension(self):
+        return self.length - self.retracted_length
+
+    @property
+    def deployed(self):
+        return self.extension > 0.01
+
+    def run_angle(self, speed, angle, then=Stop.HOLD, wait=True):
+        self.angle = clamp(self.angle + angle, 0, self.max_angle)
+        return self.angle
+
+    def reset(self):
+        self.angle = 0
+
+
+arm = LinearMechanismMotor(
+    "front arm",
+    ARM_LENGTH_RETRACTED,
+    ARM_LENGTH_EXTENDED,
+    ARM_MAX_ANGLE,
+)
+box = LinearMechanismMotor(
+    "box",
+    BOX_LENGTH_RETRACTED,
+    BOX_LENGTH_EXTENDED,
+    BOX_MAX_ANGLE,
+)
+arm_extension = arm.extension
+box_extension = box.extension
+
+
+def update_mechanism_state():
+    global arm_extension, box_extension
+    arm_extension = arm.extension
+    box_extension = box.extension
+
+
+def local_to_screen(local_x, local_y):
+    """Robot-local coordinates: +x is robot right, +y is robot front."""
     rad = math.radians(angle)
-    arm_x = x + math.cos(rad) * offset
-    arm_y = y - math.sin(rad) * offset
+    right_x, right_y = math.sin(rad), math.cos(rad)
+    front_x, front_y = math.cos(rad), -math.sin(rad)
+    px = x + (right_x * local_x + front_x * local_y) * ROBOT_UNIT_MM * SCALE
+    py = y + (right_y * local_x + front_y * local_y) * ROBOT_UNIT_MM * SCALE
+    return px, py
 
-    arm_surf = pygame.Surface((arm_h, arm_w), pygame.SRCALPHA)
-    pygame.draw.rect(arm_surf, (0, 200, 0, 120), (0, 0, arm_h, arm_w))
 
-    rotated_arm = pygame.transform.rotozoom(arm_surf, angle, 1)
-    arm_rect = rotated_arm.get_rect(center=(arm_x, arm_y))
-    WIN.blit(rotated_arm, arm_rect.topleft)
+def local_rect_points(x_min, x_max, y_min, y_max):
+    return [
+        local_to_screen(x_min, y_min),
+        local_to_screen(x_max, y_min),
+        local_to_screen(x_max, y_max),
+        local_to_screen(x_min, y_max),
+    ]
 
-    return rot_rect.union(arm_rect)
+
+def polygon_bounds(points):
+    min_x = min(px for px, py in points)
+    max_x = max(px for px, py in points)
+    min_y = min(py for px, py in points)
+    max_y = max(py for px, py in points)
+    return pygame.Rect(int(min_x), int(min_y), int(max_x - min_x) + 1, int(max_y - min_y) + 1)
+
+
+def draw_local_rect(surface, x_min, x_max, y_min, y_max, fill, outline):
+    points = local_rect_points(x_min, x_max, y_min, y_max)
+    pygame.draw.polygon(surface, fill, points)
+    pygame.draw.polygon(surface, outline, points, 2)
+    return points
+
+
+def draw_polygon_label(points, label, color):
+    cx = sum(px for px, py in points) / len(points)
+    cy = sum(py for px, py in points) / len(points)
+    text = FONT.render(label, True, color)
+    WIN.blit(text, text.get_rect(center=(cx, cy)))
+
+
+def get_robot_collision_polygons():
+    body = local_rect_points(
+        -ROBOT_WIDTH / 2,
+        ROBOT_WIDTH / 2,
+        -ROBOT_LENGTH / 2,
+        ROBOT_LENGTH / 2,
+    )
+    front_arm = local_rect_points(
+        -ARM_WIDTH / 2,
+        ARM_WIDTH / 2,
+        ROBOT_LENGTH / 2,
+        ROBOT_LENGTH / 2 + arm.length,
+    )
+    rear_box = local_rect_points(
+        -BOX_WIDTH / 2,
+        BOX_WIDTH / 2,
+        -ROBOT_LENGTH / 2 - box.length,
+        -ROBOT_LENGTH / 2,
+    )
+    return [body, front_arm, rear_box]
+
+
+def draw_robot():
+    update_mechanism_state()
+    overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
+
+    polygons = []
+    polygons.append(draw_local_rect(
+        overlay,
+        -ROBOT_WIDTH / 2,
+        ROBOT_WIDTH / 2,
+        -ROBOT_LENGTH / 2,
+        ROBOT_LENGTH / 2,
+        (0, 0, 255, 150),
+        (0, 0, 120, 255),
+    ))
+    front_arm = draw_local_rect(
+        overlay,
+        -ARM_WIDTH / 2,
+        ARM_WIDTH / 2,
+        ROBOT_LENGTH / 2,
+        ROBOT_LENGTH / 2 + arm.length,
+        (0, 200, 0, 95),
+        (0, 120, 0, 255),
+    )
+    polygons.append(front_arm)
+    rear_box = draw_local_rect(
+        overlay,
+        -BOX_WIDTH / 2,
+        BOX_WIDTH / 2,
+        -ROBOT_LENGTH / 2 - box.length,
+        -ROBOT_LENGTH / 2,
+        (255, 170, 0, 60),
+        (170, 95, 0, 255),
+    )
+    polygons.append(rear_box)
+
+    front_start = local_to_screen(0, 0)
+    front_end = local_to_screen(0, ROBOT_LENGTH / 2)
+    pygame.draw.line(overlay, (255, 0, 0, 255), front_start, front_end, 3)
+    WIN.blit(overlay, (0, 0))
+    draw_polygon_label(front_arm, "front arm", (0, 100, 0))
+    draw_polygon_label(rear_box, "box", (135, 75, 0))
+
+    bounds = polygon_bounds(polygons[0])
+    for poly in polygons[1:]:
+        bounds = bounds.union(polygon_bounds(poly))
+    return bounds
+
+
+def draw_debug_overlay():
+    pose_x_mm, pose_y_mm = px_to_mm(x, y)
+    lines = [
+        f"pose: x={pose_x_mm:.0f} mm y={pose_y_mm:.0f} mm heading={angle:.1f}",
+        f"arm length={arm.length:.1f} units extension={arm_extension:.1f}",
+        f"box length={box.length:.1f} units extension={box_extension:.1f}",
+    ]
+    panel_w = 330
+    panel_h = 18 * len(lines) + 8
+    panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+    pygame.draw.rect(panel, (255, 255, 255, 185), (0, 0, panel_w, panel_h))
+    for i, line in enumerate(lines):
+        txt = FONT.render(line, True, (0, 0, 0))
+        panel.blit(txt, (6, 5 + i * 18))
+    WIN.blit(panel, (10, WIN_H - panel_h - 10))
+
+
+def reset_mechanisms():
+    arm.reset()
+    box.reset()
+    update_mechanism_state()
+
+
+def load_mechanism_test_routine():
+    global commands, cmd_i, progress, waiting, started
+    reset_mechanisms()
+    commands = [
+        ['arm_retract', 0],
+        ['box_retract', 0],
+        ['arm_extend', 1],
+        ['arm_retract', 0],
+        ['box_extend', 1],
+        ['box_retract', 0],
+    ]
+    cmd_i, progress = 0, 0
+    waiting = False
+    started = True
+
+
+def draw_ruler():
+    ruler_w = max(1, int(RULER_MM * SCALE))
+    surface = pygame.Surface((ruler_w, RULER_HEIGHT_PX), pygame.SRCALPHA)
+    pygame.draw.rect(surface, (250, 240, 190, 235), (0, 0, ruler_w, RULER_HEIGHT_PX), border_radius=4)
+    pygame.draw.rect(surface, (80, 70, 40), (0, 0, ruler_w, RULER_HEIGHT_PX), 1, border_radius=4)
+
+    for mm in range(0, RULER_MM + 1, 10):
+        tick_x = int(mm * SCALE)
+        if mm % 100 == 0:
+            tick_h = 22
+        elif mm % 50 == 0:
+            tick_h = 16
+        else:
+            tick_h = 10
+        pygame.draw.line(
+            surface,
+            (60, 50, 30),
+            (tick_x, RULER_HEIGHT_PX),
+            (tick_x, RULER_HEIGHT_PX - tick_h),
+            1,
+        )
+        if mm < RULER_MM and mm % 50 == 0:
+            label = FONT.render(str(mm), True, (60, 50, 30))
+            surface.blit(label, (tick_x + 2, 4))
+
+    end_label = FONT.render(f"{RULER_MM} mm", True, (60, 50, 30))
+    surface.blit(end_label, (max(4, ruler_w - end_label.get_width() - 6), 4))
+
+    ruler_rect = surface.get_rect(topleft=(int(ruler_x), int(ruler_y)))
+    WIN.blit(surface, ruler_rect.topleft)
+    return ruler_rect
 
 
 def move(cmd, val, x, y, angle, prog):
@@ -164,6 +399,7 @@ while run:
 
     # Draw robot and get its rect for interaction when not started
     robot_rect = draw_robot()
+    ruler_rect = draw_ruler()
 
     # Draw UI when not started (You can remove this once you are used to it)
     if not started:
@@ -172,6 +408,9 @@ while run:
             "Left-drag = move",
             "Right-drag = rotate",
             "Mouse wheel = rotate",
+            "R = toggle front arm",
+            "B = toggle rear box",
+            "T = mechanism test routine",
             "Click STAART or any key to begin"
         ]
         for i, line in enumerate(instr_lines):
@@ -184,13 +423,26 @@ while run:
         start_txt = FONT.render("START (S)", True, (0, 0, 0))
         WIN.blit(start_txt, (WIN_W - 90, 18))
 
+    draw_debug_overlay()
     pygame.display.flip()
 
     if started:
         if cmd_i < len(commands) and not waiting:
             cmd, val = commands[cmd_i][0], commands[cmd_i][1:]
             if cmd == 'lift_up' or cmd == 'lift_down':
-                arm_down = bool(val[0])
+                if bool(val[0]):
+                    arm.run_angle(300, ARM_MAX_ANGLE)
+                else:
+                    arm.run_angle(500, -ARM_MAX_ANGLE)
+                update_mechanism_state()
+                waiting = True
+            elif cmd == 'arm_extend' or cmd == 'arm_retract':
+                arm.run_angle(500, ARM_MAX_ANGLE if cmd == 'arm_extend' else -ARM_MAX_ANGLE)
+                update_mechanism_state()
+                waiting = True
+            elif cmd == 'box_extend' or cmd == 'box_retract':
+                box.run_angle(500, BOX_MAX_ANGLE if cmd == 'box_extend' else -BOX_MAX_ANGLE)
+                update_mechanism_state()
                 waiting = True
             else:
                 x, y, angle, progress = move(cmd, val, x, y, angle, progress)
@@ -209,11 +461,19 @@ while run:
             started = False
             dragging = False
             rotating = False
+            ruler_dragging = False
+            reset_mechanisms()
         elif e.type == pygame.KEYDOWN and not started:
             if e.key == pygame.K_SPACE:
                 started = True
             if e.key == pygame.K_r:
-                arm_down = not arm_down
+                arm.run_angle(500, -ARM_MAX_ANGLE if arm.deployed else ARM_MAX_ANGLE)
+                update_mechanism_state()
+            if e.key == pygame.K_b:
+                box.run_angle(500, -BOX_MAX_ANGLE if box.deployed else BOX_MAX_ANGLE)
+                update_mechanism_state()
+            if e.key == pygame.K_t:
+                load_mechanism_test_routine()
             if e.key == pygame.K_w:
                 y -= move_step
             elif e.key == pygame.K_s:
@@ -230,36 +490,38 @@ while run:
             cmd_i, progress = cmd_i + 1, 0
             waiting = False
 
-        if not started:
-            if e.type == pygame.MOUSEBUTTONDOWN:
-                mx, my = e.pos
-                # reft click: start dragging if on robot
-                if e.button == 1 and robot_rect.collidepoint((mx, my)):
-                    dragging = True
-                    drag_offset = (x - mx, y - my)
-                # right click: start rotating if on robot
-                elif (e.button == 3 or e.button == 2) and robot_rect.collidepoint((mx, my)):
-                    rotating = True
-                # rlick start button
-                elif e.button == 1 and 'start_rect' in locals() and start_rect.collidepoint((mx, my)):
-                    started = True
-            elif e.type == pygame.MOUSEBUTTONUP:
-                if e.button == 1:
-                    dragging = False
-                if e.button == 3 or e.button == 2:
-                    rotating = False
-            elif e.type == pygame.MOUSEMOTION:
-                mx, my = e.pos
-                if dragging:
-                    x = mx + drag_offset[0]
-                    y = my + drag_offset[1]
-                elif rotating:
-                    # angle = degrees(atan2(-(mousey - y), (mousex - x)))
-                    dx = mx - x
-                    dy = my - y
-                    angle = math.degrees(math.atan2(-dy, dx))
-            elif e.type == pygame.MOUSEWHEEL:
-                angle -= e.y * 5
+        if e.type == pygame.MOUSEBUTTONDOWN:
+            mx, my = e.pos
+            if e.button == 1 and ruler_rect.collidepoint((mx, my)):
+                ruler_dragging = True
+                ruler_drag_offset = (ruler_x - mx, ruler_y - my)
+            elif not started and e.button == 1 and robot_rect.collidepoint((mx, my)):
+                dragging = True
+                drag_offset = (x - mx, y - my)
+            elif not started and (e.button == 3 or e.button == 2) and robot_rect.collidepoint((mx, my)):
+                rotating = True
+            elif not started and e.button == 1 and 'start_rect' in locals() and start_rect.collidepoint((mx, my)):
+                started = True
+        elif e.type == pygame.MOUSEBUTTONUP:
+            if e.button == 1:
+                dragging = False
+                ruler_dragging = False
+            if e.button == 3 or e.button == 2:
+                rotating = False
+        elif e.type == pygame.MOUSEMOTION:
+            mx, my = e.pos
+            if ruler_dragging:
+                ruler_x = mx + ruler_drag_offset[0]
+                ruler_y = my + ruler_drag_offset[1]
+            elif not started and dragging:
+                x = mx + drag_offset[0]
+                y = my + drag_offset[1]
+            elif not started and rotating:
+                dx = mx - x
+                dy = my - y
+                angle = math.degrees(math.atan2(-dy, dx))
+        elif not started and e.type == pygame.MOUSEWHEEL:
+            angle -= e.y * 5
 
     if not started:
         continue
@@ -279,4 +541,12 @@ for com in commands:
         print(f'await arm.run_angle(500,-500)')
     elif com[0] == 'lift_down':
         print(f'await arm.run_angle(300,500)')
+    elif com[0] == 'arm_retract':
+        print(f'await arm.run_angle(500,-{ARM_MAX_ANGLE})')
+    elif com[0] == 'arm_extend':
+        print(f'await arm.run_angle(500,{ARM_MAX_ANGLE})')
+    elif com[0] == 'box_retract':
+        print(f'await box.run_angle(500,-{BOX_MAX_ANGLE})')
+    elif com[0] == 'box_extend':
+        print(f'await box.run_angle(500,{BOX_MAX_ANGLE})')
 print("\n===== END COPY BLOCK =====\n")
