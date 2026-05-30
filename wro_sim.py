@@ -18,13 +18,13 @@ ARM_LENGTH_RETRACTED = 8
 ARM_LENGTH_EXTENDED = 12
 BOX_WIDTH = 23
 BOX_LENGTH_RETRACTED = 1
-BOX_LENGTH_EXTENDED = 14
+BOX_LENGTH_EXTENDED = 13
 ROBOT_UNIT_MM = 10
 
-ARM_MAX_ANGLE = 500
-BOX_MAX_ANGLE = 500
+ARM_MAX_ANGLE = 150
+BOX_MAX_ANGLE = 185
 
-command_string = "a500/90, ld, f200, t90, lu"
+command_string = "f120, t90, f650, t90, f150"
 command_string.strip()
 
 command_split = command_string.split(',')
@@ -542,11 +542,11 @@ for com in commands:
     elif com[0] == 'lift_down':
         print(f'await arm.run_angle(300,500)')
     elif com[0] == 'arm_retract':
-        print(f'await arm.run_angle(500,-{ARM_MAX_ANGLE})')
-    elif com[0] == 'arm_extend':
         print(f'await arm.run_angle(500,{ARM_MAX_ANGLE})')
+    elif com[0] == 'arm_extend':
+        print(f'await arm.run_angle(500,-{ARM_MAX_ANGLE})')
     elif com[0] == 'box_retract':
-        print(f'await box.run_angle(500,-{BOX_MAX_ANGLE})')
-    elif com[0] == 'box_extend':
         print(f'await box.run_angle(500,{BOX_MAX_ANGLE})')
+    elif com[0] == 'box_extend':
+        print(f'await box.run_angle(500,-{BOX_MAX_ANGLE})')
 print("\n===== END COPY BLOCK =====\n")
