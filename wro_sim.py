@@ -89,21 +89,16 @@ def clamp(value, low, high):
 # Robot dimensions (mm)
 BODY_W_MM = units_to_mm(ROBOT_WIDTH)
 BODY_H_MM = units_to_mm(ROBOT_LENGTH)
-RULER_MM = 300
-RULER_HEIGHT_PX = 36
 
 R_MM = 50
 R = int(R_MM * SCALE)
 x, y = mm_to_px(250, 265)
 angle = 90
 progress, cmd_i = 0, 0
-ruler_x, ruler_y = bx + 30, by + h - 70
 
 dragging = False
 rotating = False
-ruler_dragging = False
 drag_offset = (0, 0)
-ruler_drag_offset = (0, 0)
 
 # UI
 FONT = pygame.font.SysFont(None, 20)
@@ -314,40 +309,6 @@ def load_mechanism_test_routine():
     waiting = False
     started = True
 
-
-def draw_ruler():
-    ruler_w = max(1, int(RULER_MM * SCALE))
-    surface = pygame.Surface((ruler_w, RULER_HEIGHT_PX), pygame.SRCALPHA)
-    pygame.draw.rect(surface, (250, 240, 190, 235), (0, 0, ruler_w, RULER_HEIGHT_PX), border_radius=4)
-    pygame.draw.rect(surface, (80, 70, 40), (0, 0, ruler_w, RULER_HEIGHT_PX), 1, border_radius=4)
-
-    for mm in range(0, RULER_MM + 1, 10):
-        tick_x = int(mm * SCALE)
-        if mm % 100 == 0:
-            tick_h = 22
-        elif mm % 50 == 0:
-            tick_h = 16
-        else:
-            tick_h = 10
-        pygame.draw.line(
-            surface,
-            (60, 50, 30),
-            (tick_x, RULER_HEIGHT_PX),
-            (tick_x, RULER_HEIGHT_PX - tick_h),
-            1,
-        )
-        if mm < RULER_MM and mm % 50 == 0:
-            label = FONT.render(str(mm), True, (60, 50, 30))
-            surface.blit(label, (tick_x + 2, 4))
-
-    end_label = FONT.render(f"{RULER_MM} mm", True, (60, 50, 30))
-    surface.blit(end_label, (max(4, ruler_w - end_label.get_width() - 6), 4))
-
-    ruler_rect = surface.get_rect(topleft=(int(ruler_x), int(ruler_y)))
-    WIN.blit(surface, ruler_rect.topleft)
-    return ruler_rect
-
-
 def move(cmd, val, x, y, angle, prog):
     if cmd == 'forward':
         val = val[0]
@@ -399,7 +360,6 @@ while run:
 
     # Draw robot and get its rect for interaction when not started
     robot_rect = draw_robot()
-    ruler_rect = draw_ruler()
 
     # Draw UI when not started (You can remove this once you are used to it)
     if not started:
@@ -461,7 +421,6 @@ while run:
             started = False
             dragging = False
             rotating = False
-            ruler_dragging = False
             reset_mechanisms()
         elif e.type == pygame.KEYDOWN and not started:
             if e.key == pygame.K_SPACE:
@@ -492,10 +451,7 @@ while run:
 
         if e.type == pygame.MOUSEBUTTONDOWN:
             mx, my = e.pos
-            if e.button == 1 and ruler_rect.collidepoint((mx, my)):
-                ruler_dragging = True
-                ruler_drag_offset = (ruler_x - mx, ruler_y - my)
-            elif not started and e.button == 1 and robot_rect.collidepoint((mx, my)):
+            if not started and e.button == 1 and robot_rect.collidepoint((mx, my)):
                 dragging = True
                 drag_offset = (x - mx, y - my)
             elif not started and (e.button == 3 or e.button == 2) and robot_rect.collidepoint((mx, my)):
@@ -505,15 +461,11 @@ while run:
         elif e.type == pygame.MOUSEBUTTONUP:
             if e.button == 1:
                 dragging = False
-                ruler_dragging = False
             if e.button == 3 or e.button == 2:
                 rotating = False
         elif e.type == pygame.MOUSEMOTION:
             mx, my = e.pos
-            if ruler_dragging:
-                ruler_x = mx + ruler_drag_offset[0]
-                ruler_y = my + ruler_drag_offset[1]
-            elif not started and dragging:
+            if not started and dragging:
                 x = mx + drag_offset[0]
                 y = my + drag_offset[1]
             elif not started and rotating:
