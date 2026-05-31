@@ -24,7 +24,7 @@ ROBOT_UNIT_MM = 10
 ARM_MAX_ANGLE = 150
 BOX_MAX_ANGLE = 185
 
-command_string = "f120, t90, f650, t90, f150"
+command_string = "f120, t90, f650, t90, f150, lu, ld, ae, ar"
 command_string.strip()
 
 command_split = command_string.split(',')
@@ -391,7 +391,7 @@ while run:
             "R = toggle front arm",
             "B = toggle rear box",
             "T = mechanism test routine",
-            "Click STAART or any key to begin"
+            "SPACE = run next move"
         ]
         for i, line in enumerate(instr_lines):
             txt = FONT.render(line, True, (0, 0, 0))
@@ -467,7 +467,7 @@ while run:
                 angle = (angle + 45) % 360
             elif e.key == pygame.K_RIGHT:
                 angle = (angle - 45) % 360
-        elif e.type == pygame.KEYDOWN and waiting:
+        elif e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE and waiting:
             cmd_i, progress = cmd_i + 1, 0
             waiting = False
 
