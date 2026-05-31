@@ -510,6 +510,14 @@ while run:
         elif e.type == pygame.KEYDOWN and e.key == pygame.K_PERIOD:
             POINTS.clear()
 
+        elif e.type == pygame.KEYDOWN:
+            if e.key == pygame.K_r:
+                arm.run_angle(500, -ARM_MAX_ANGLE if arm.deployed else ARM_MAX_ANGLE)
+                update_mechanism_state()
+            if e.key == pygame.K_b:
+                box.run_angle(500, -BOX_MAX_ANGLE if box.deployed else BOX_MAX_ANGLE)
+                update_mechanism_state()
+
     if not started:
         continue
 
