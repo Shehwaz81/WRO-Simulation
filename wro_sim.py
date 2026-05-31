@@ -280,7 +280,7 @@ def display_measurement():
     mm1_x, mm1_y = px_to_mm(x1, y1)
     mm2_x, mm2_y = px_to_mm(x2, y2)
     distance = math.hypot(mm2_x - mm1_x, mm2_y - mm1_y)
-    text = FONT.render(f"{distance:.1f} mm", True, (0, 0, 0))
+    text = FONT.render(f"{distance:.1f} mm", True, (128, 0, 128))
     label_x = (x1 + x2 - text.get_width()) // 2
     label_y = (y1 + y2 - text.get_height()) // 2
     WIN.blit(text, (label_x, label_y))
@@ -288,7 +288,7 @@ def display_measurement():
 
 def display_points():
     for point in POINTS:
-        pygame.draw.circle(WIN, (0, 0, 0), point, 5)
+        pygame.draw.circle(WIN, (80, 0, 100), point, 5)
 
 
 def draw_debug_overlay():
