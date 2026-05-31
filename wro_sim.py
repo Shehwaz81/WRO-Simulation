@@ -74,6 +74,8 @@ board = pygame.transform.smoothscale(board, (w, h))
 bx, by = (WIN_W - w) // 2, (WIN_H - h) // 2
 SCALE = min(w / BOARD_W, h / BOARD_H)
 
+POINTS = [] # appends point when user presses p
+
 def mm_to_px(x, y):
     return int(bx + x * SCALE), int(by + h - y * SCALE)
 
@@ -271,6 +273,24 @@ def draw_robot():
     return bounds
 
 
+def display_measurement():
+    if len(POINTS) != 2:
+        return
+    (x1, y1), (x2, y2) = POINTS
+    mm1_x, mm1_y = px_to_mm(x1, y1)
+    mm2_x, mm2_y = px_to_mm(x2, y2)
+    distance = math.hypot(mm2_x - mm1_x, mm2_y - mm1_y)
+    text = FONT.render(f"{distance:.1f} mm", True, (0, 0, 0))
+    label_x = (x1 + x2 - text.get_width()) // 2
+    label_y = (y1 + y2 - text.get_height()) // 2
+    WIN.blit(text, (label_x, label_y))
+
+
+def display_points():
+    for point in POINTS:
+        pygame.draw.circle(WIN, (0, 0, 0), point, 5)
+
+
 def draw_debug_overlay():
     pose_x_mm, pose_y_mm = px_to_mm(x, y)
     lines = [
@@ -383,6 +403,8 @@ while run:
         start_txt = FONT.render("START (S)", True, (0, 0, 0))
         WIN.blit(start_txt, (WIN_W - 90, 18))
 
+    display_measurement()
+    display_points()
     draw_debug_overlay()
     pygame.display.flip()
 
@@ -474,6 +496,19 @@ while run:
                 angle = math.degrees(math.atan2(-dy, dx))
         elif not started and e.type == pygame.MOUSEWHEEL:
             angle -= e.y * 5
+
+        elif e.type == pygame.KEYDOWN and e.key == pygame.K_p:
+            # see how many points are already in p
+            mouse_pos = pygame.mouse.get_pos()
+            if len(POINTS) == 0:
+                POINTS.append(mouse_pos)
+            elif len(POINTS) == 1:
+                POINTS.append(mouse_pos)
+            elif len(POINTS) == 2:
+                POINTS.pop(0)
+                POINTS.append(mouse_pos)
+        elif e.type == pygame.KEYDOWN and e.key == pygame.K_PERIOD:
+            POINTS.clear()
 
     if not started:
         continue
